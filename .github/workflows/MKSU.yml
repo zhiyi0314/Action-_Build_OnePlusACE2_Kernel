@@ -408,39 +408,13 @@ jobs:
 
       - name: Add mKSU
         run: |
-          cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash
-          cd KernelSU
+         cd kernel_workspace/kernel_platform
+         curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -
+         cd KernelSU || exit 1
+         git revert -m 1 "$(git log --grep="remove devpts hook" --pretty=format:"%H")" -n
+         KSU_VERSION=$(expr "$(git rev-list --count HEAD)" + 10200)
+         sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
           
-          # 精确计算版本号 - 遵循Makefile逻辑
-          if [ -d ".git" ]; then
-            # 方法1: 使用git命令直接计算（最准确）
-            GIT_COUNT=$(git rev-list --count HEAD 2>/dev/null)
-            if [ -n "$GIT_COUNT" ] && [ "$GIT_COUNT" -gt 0 ]; then
-              KSU_VERSION=$((20000 + GIT_COUNT))
-              echo "使用git提交数量计算的版本号: $KSU_VERSION (提交数: $GIT_COUNT)"
-            else
-              # git命令失败，使用API
-              GIT_COUNT=$(curl -s "https://api.github.com/repos/5ec1cff/KernelSU/commits?per_page=1" | grep -o '"total_count": [0-9]*' | head -1 | cut -d' ' -f2)
-              if [ -n "$GIT_COUNT" ] && [ "$GIT_COUNT" -gt 0 ]; then
-                KSU_VERSION=$((20000 + GIT_COUNT))
-              else
-                KSU_VERSION=22042
-              fi
-            fi
-          else
-            # 非git环境，使用已知版本
-            KSU_VERSION=22042
-          fi
-          
-          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          echo "mKSU版本号: $KSU_VERSION"
-          
-          # 确保Makefile中的版本号正确
-          if [ -f kernel/Makefile ]; then
-            sed -i "s/^DKSU_VERSION=.*/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile || true
-          fi
-
       - name: Apply Patches KernelSU
         run: |
           cd kernel_workspace
