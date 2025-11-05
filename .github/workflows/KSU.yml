@@ -427,7 +427,7 @@ jobs:
 
           export KERNEL_REPO=$(pwd)
           cd ./KernelSU
-          patch -p1 < 10_enable_susfs_for_ksu.patch
+          patch -p1 < 10_enable_susfs_for_ksu.patch || true
           cd $KERNEL_REPO/
 
           cd ./KernelSU
