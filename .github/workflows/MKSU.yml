@@ -411,9 +411,6 @@ jobs:
          cd kernel_workspace/kernel_platform
          curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -
          cd KernelSU || exit 1
-         git revert -m 1 "$(git log --grep="remove devpts hook" --pretty=format:"%H")" -n
-         KSU_VERSION=$(expr "$(git rev-list --count HEAD)" + 10200)
-         sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
           
       - name: Apply Patches KernelSU
         run: |
