@@ -409,9 +409,7 @@ jobs:
       - name: Add KernelSU
         run: |
           cd kernel_workspace/kernel_platform
-          # 使用原版KernelSU的setup.sh脚本，默认拉取main分支
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
-          cd KernelSU
 
       - name: Apply Patches KernelSU
         run: |
@@ -421,29 +419,18 @@ jobs:
           cd kernel_platform
           echo "正在拉取susfs补丁"
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.KANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
-          cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU
+          cp ../kernel_patches/next/scope_min_manual_hooks_v1.5.patch ./common/
+          cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./common
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-          export KERNEL_REPO=$(pwd)
-          cd ./KernelSU
-          patch -p1 < 10_enable_susfs_for_ksu.patch || true
-          cd $KERNEL_REPO/
-
-          cd ./KernelSU
+          cd ./common
           GKI_V="${{ env.KANDROID_VERSION }}-${{ env.KERNEL_VERSION }}"
           SUBLEVEL=$(grep '^SUBLEVEL *=' Makefile | head -n1 | cut -d= -f2 | tr -d ' ')
           KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
           TKERNEL_VERSION="${{ env.TKERNEL_VERSION }}"
           file="${{ github.event.inputs.FILE }}"
           TRUSTY_EXISTS="false"
-          if [[ "$KERNEL_VERSION" == "6.6" ]]; then
-            if grep -q 'common-modules/trusty' "$GITHUB_WORKSPACE/.repo/manifests_fallback/${file}.xml"; then
-              TRUSTY_EXISTS="true"
-            fi
-            echo "trusty_exists=$TRUSTY_EXISTS" >> $GITHUB_OUTPUT
-
-          fi
           # Fake Patch to fix failures
           fake_patched=0
           if [ "$GKI_V" = "android12-5.10" ] || [ "$GKI_V" = "android13-5.15" ]; then
@@ -454,8 +441,11 @@ jobs:
           fi
 
           echo "正在打susfs补丁"
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch  || true
           patch -p1 < 50_add_susfs_in_gki-${{ env.KANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
           echo "susfs_patch完成"
+
+          patch -p1 --fuzz=3 < scope_min_manual_hooks_v1.5.patch
 
           # Revert
           if [ "$fake_patched" = 1 ]; then
@@ -465,7 +455,39 @@ jobs:
               fi
             fi
           fi
-
+      - name: Patch KernelSU Source Code
+        run: |
+          cd kernel_workspace/kernel_platform/common/drivers/kernelsu
+    
+          echo "🔧 修补KernelSU核心钩子代码..."
+    
+          # 备份原文件
+          cp core_hook.c core_hook.c.backup
+    
+          # 修复try_umount函数调用，添加uid参数
+          sed -i 's/try_umount("\/odm", true, 0);/try_umount("\/odm", true, 0, current_uid());/g' core_hook.c
+          sed -i 's/try_umount("\/system", true, 0);/try_umount("\/system", true, 0, current_uid());/g' core_hook.c
+          sed -i 's/try_umount("\/vendor", true, 0);/try_umount("\/vendor", true, 0, current_uid());/g' core_hook.c
+          sed -i 's/try_umount("\/product", true, 0);/try_umount("\/product", true, 0, current_uid());/g' core_hook.c
+          sed -i 's/try_umount("\/system_ext", true, 0);/try_umount("\/system_ext", true, 0, current_uid());/g' core_hook.c
+          sed -i 's/try_umount("\/data\/adb\/modules", false, MNT_DETACH);/try_umount("\/data\/adb\/modules", false, MNT_DETACH, current_uid());/g' core_hook.c
+    
+          # 检查并修复预处理指令错误
+          if grep -q "#endif // #ifdef CONFIG_KSU_SUSFS" core_hook.c && ! grep -q "#ifdef CONFIG_KSU_SUSFS" core_hook.c; then
+            echo "⚠️  修复预处理指令错误..."
+            # 删除多余的#endif或者添加对应的#ifdef
+            sed -i '/#endif \/\/ #ifdef CONFIG_KSU_SUSFS/d' core_hook.c
+          fi
+    
+          # 验证修改
+          echo "✅ 修改验证："
+          grep -n "try_umount" core_hook.c
+          echo "修补完成！"
+    
+          # 显示修改前后的差异
+          echo "📋 修改差异："
+          diff -u core_hook.c.backup core_hook.c | head -20 || true
+          
       - name: Apply LSM_BBG
         if: ${{ github.event.inputs.LSM == 'true' }}
         run: |
@@ -481,17 +503,13 @@ jobs:
           CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
           KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KPROBES=y" >> "$CONFIG_FILE"
-          echo "CONFIG_HAVE_KPROBES=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KPROBE_EVENTS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_KPROBES_HOOK=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=n" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
@@ -499,11 +517,13 @@ jobs:
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_OVERLAY_FS=y" >> "$CONFIG_FILE"
-
+          echo "CONFIG_KPROBES=y" >> "$CONFIG_FILE"
+          echo "CONFIG_HAVE_KPROBES=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KPROBE_EVENTS=y" >> "$CONFIG_FILE"
+          
           # TMPFS配置*
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
@@ -620,5 +640,6 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: AK3_KSU_${{ env.KSUVER }}_${{ steps.extract_info.outputs.value }}(${{ env.TKERNEL_VERSION }})
+          name: AK3_KSU_${{ env.KSUVER }}_${{ steps.extract_info.outputs.value }}(${{ env.TKERNEL_VERSION }})${{ steps.suffix.outputs.value }}
           path: ./AnyKernel3/*
+
