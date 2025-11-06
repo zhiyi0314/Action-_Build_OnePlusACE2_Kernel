@@ -455,39 +455,36 @@ jobs:
               fi
             fi
           fi
-      - name: Patch KernelSU Source Code
+      # 删除或注释掉之前错误的修补步骤
+      # - name: Patch KernelSU Source Code
+      #   run: |
+      #     ... 删除这个步骤 ...
+
+      # 添加正确的修复步骤
+      - name: Fix KernelSU try_umount Calls
         run: |
           cd kernel_workspace/kernel_platform/common/drivers/kernelsu
-    
-          echo "🔧 修补KernelSU核心钩子代码..."
-    
-          # 备份原文件
-          cp core_hook.c core_hook.c.backup
-    
-          # 修复try_umount函数调用，添加uid参数
-          sed -i 's/try_umount("\/odm", true, 0);/try_umount("\/odm", true, 0, current_uid());/g' core_hook.c
-          sed -i 's/try_umount("\/system", true, 0);/try_umount("\/system", true, 0, current_uid());/g' core_hook.c
-          sed -i 's/try_umount("\/vendor", true, 0);/try_umount("\/vendor", true, 0, current_uid());/g' core_hook.c
-          sed -i 's/try_umount("\/product", true, 0);/try_umount("\/product", true, 0, current_uid());/g' core_hook.c
-          sed -i 's/try_umount("\/system_ext", true, 0);/try_umount("\/system_ext", true, 0, current_uid());/g' core_hook.c
-          sed -i 's/try_umount("\/data\/adb\/modules", false, MNT_DETACH);/try_umount("\/data\/adb\/modules", false, MNT_DETACH, current_uid());/g' core_hook.c
-    
-          # 检查并修复预处理指令错误
-          if grep -q "#endif // #ifdef CONFIG_KSU_SUSFS" core_hook.c && ! grep -q "#ifdef CONFIG_KSU_SUSFS" core_hook.c; then
-            echo "⚠️  修复预处理指令错误..."
-            # 删除多余的#endif或者添加对应的#ifdef
-            sed -i '/#endif \/\/ #ifdef CONFIG_KSU_SUSFS/d' core_hook.c
-          fi
-    
-          # 验证修改
-          echo "✅ 修改验证："
-          grep -n "try_umount" core_hook.c
-          echo "修补完成！"
-    
-          # 显示修改前后的差异
-          echo "📋 修改差异："
-          diff -u core_hook.c.backup core_hook.c | head -20 || true
           
+          echo "🔧 修复try_umount函数调用..."
+          
+          # 首先检查当前的状态
+          echo "📋 当前try_umount调用状态："
+          grep -n "try_umount" core_hook.c
+          
+          # 修复所有try_umount调用为3个参数
+          sed -i 's/try_umount("\/odm", true, 0, current_uid())/try_umount("\/odm", true, 0)/g' core_hook.c
+          sed -i 's/try_umount("\/system", true, 0, current_uid())/try_umount("\/system", true, 0)/g' core_hook.c
+          sed -i 's/try_umount("\/vendor", true, 0, current_uid())/try_umount("\/vendor", true, 0)/g' core_hook.c
+          sed -i 's/try_umount("\/product", true, 0, current_uid())/try_umount("\/product", true, 0)/g' core_hook.c
+          sed -i 's/try_umount("\/system_ext", true, 0, current_uid())/try_umount("\/system_ext", true, 0)/g' core_hook.c
+          sed -i 's/try_umount("\/data\/adb\/modules", false, MNT_DETACH, current_uid())/try_umount("\/data\/adb\/modules", false, MNT_DETACH)/g' core_hook.c
+          
+          # 再次验证
+          echo "✅ 修复后的try_umount调用："
+          grep -n "try_umount" core_hook.c
+          
+          echo "修复完成！"
+
       - name: Apply LSM_BBG
         if: ${{ github.event.inputs.LSM == 'true' }}
         run: |
@@ -642,4 +639,3 @@ jobs:
         with:
           name: AK3_KSU_${{ env.KSUVER }}_${{ steps.extract_info.outputs.value }}(${{ env.TKERNEL_VERSION }})${{ steps.suffix.outputs.value }}
           path: ./AnyKernel3/*
-
