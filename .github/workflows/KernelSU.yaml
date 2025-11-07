@@ -1,4 +1,4 @@
-name:（NO SUSFS!）Build OnePlus_ACE2_KernelSU
+name: (NO SUSFS!)Build OnePlus_ACE2_KernelSU
 on:
   workflow_dispatch:
     inputs:
