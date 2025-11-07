@@ -231,14 +231,13 @@ jobs:
           cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android12-5.10
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
-          git clone https://github.com/liqideqq/kernel_patches.git
+          git clone https://github.com/WildKernels/kernel_patches.git
           cd kernel_platform
           echo "正在拉取susfs补丁"
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          cp ../kernel_patches/mksu/mksu_susfs.patch ./KernelSU/ 2>/dev/null || true
-          cp ../kernel_patches/mksu/fix.patch ./KernelSU/ 2>/dev/null || true
+          cp ../kernel_patches/mksu/fix_core_hook.c.patch ./common/KernelSU/ 2>/dev/null || true
     
           cd ./common
     
@@ -258,8 +257,7 @@ jobs:
           patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch || true
 
           cd ./KernelSU
-          [ -f mksu_susfs.patch ] && patch -p1 < mksu_susfs.patch || true
-          [ -f fix.patch ] && patch -p1 < fix.patch || true
+          [ -f fix_core_hook.c.patch ] && patch -p1 < fix_core_hook.c.patch || true
           echo "susfs_patch完成"
 
           # Revert
