@@ -287,45 +287,27 @@ jobs:
       - name: Download KernelSU Manager from Latest Successful Action
         continue-on-error: true
         run: |
-          echo "正在从最新成功的 Action 下载 KernelSU 管理器..."
-          
-          # 获取最新成功运行的 workflow 中的 artifact
           ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=success&event=workflow_dispatch" | \
             jq -r '.workflow_runs[0] | .artifacts_url')
           
           if [ "$ARTIFACT_URL" != "null" ] && [ -n "$ARTIFACT_URL" ]; then
-            echo "找到 artifacts URL: $ARTIFACT_URL"
-            
-            # 获取 artifacts 列表
             ARTIFACTS_JSON=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$ARTIFACT_URL")
             MANAGER_DOWNLOAD_URL=$(echo "$ARTIFACTS_JSON" | jq -r '.artifacts[] | select(.name | test("manager|Manager|KernelSU")) | .archive_download_url' | head -n1)
             
             if [ -n "$MANAGER_DOWNLOAD_URL" ] && [ "$MANAGER_DOWNLOAD_URL" != "null" ]; then
-              echo "下载管理器: $MANAGER_DOWNLOAD_URL"
               curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                 -H "Accept: application/vnd.github.v3+json" \
                 -o manager.zip "$MANAGER_DOWNLOAD_URL"
               
-              # 解压 zip 文件
               unzip -o manager.zip -d manager_temp/
               
-              # 查找并重命名 apk 文件
               if find manager_temp/ -name "*.apk" | grep -q .; then
                 APK_FILE=$(find manager_temp/ -name "*.apk" | head -n1)
-                echo "找到 APK 文件: $APK_FILE"
                 cp "$APK_FILE" ./manager.apk
-                echo "✅ 管理器下载并解压成功"
-              else
-                echo "❌ 在 zip 文件中未找到 APK 文件"
-            
-              # 检查最终文件
-              if [ -f "manager.apk" ]; then
-               echo "✅ 最终管理器文件准备就绪"
-               ls -la manager.apk
-              else
-               echo "❌ 管理器下载失败"
               fi
+              
+              rm -rf manager_temp/ manager.zip
             fi
           fi
 
@@ -334,32 +316,22 @@ jobs:
           git clone https://github.com/zhiyi0314/AnyKernel3 --depth=1
           rm -rf ./AnyKernel3/.git
           
-          # 将下载的管理器复制到 AnyKernel3 目录
-          cp ./manager.apk ./AnyKernel3/manager.apk
-
+          if [ -f "./manager.apk" ]; then
+            cp ./manager.apk ./AnyKernel3/manager.apk
+          fi
+          
           mkdir -p kernel_workspace/kernel_platform/out/Final-Image-Find/
-          dir1=""
-          dir2=""
           image_path=$(find "./kernel_workspace/kernel_platform/common/out/" -name "Image" | head -n 1)
-          if [ -n "$image_path" ]; then
-            dir1=$(dirname "$image_path")/
-            echo "使用 make 编译的统一路径，成功找到 Image 文件"
-          else
+          if [ -z "$image_path" ]; then
             image_path=$(find "./kernel_workspace/kernel_platform/out/" -name "Image" | head -n 1)
-            if [ -n "$image_path" ]; then
-              dir2=$(dirname "$image_path")/
-              echo "使用官方脚本编译，成功找到 Image 文件"
-            else
-              echo "未找到 Image 文件，构建失败" >&2
-              exit 1
-            fi
           fi
           if [ -n "$image_path" ] && [ -f "$image_path" ]; then
-            echo "Image file finally located at: $image_path"
             cp "$image_path" ./AnyKernel3/Image
             cp "$image_path" kernel_workspace/kernel_platform/out/Final-Image-Find/Image
+          else
+            echo "未找到 Image 文件"
+            exit 1
           fi
-
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
