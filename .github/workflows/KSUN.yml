@@ -5,7 +5,7 @@ on:
       SUSFS_CI:
         type: choice
         description: "下载SUSFS模块调用方式"
-        required: true
+        required: false
         default: CI
         options:
           - CI
@@ -33,8 +33,8 @@ on:
         default: true 
       SUSFS_VERSION:
         type: choice
-        description: "选择SUSFS版本"
-        required: true
+        description: "选择SUSFS版本（未勾选SUSFS不用管）"
+        required: false
         default: "v1.5.12"
         options:
           - "v1.5.8"
@@ -304,20 +304,22 @@ jobs:
           cd kernel_workspace/kernel_platform
           CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
           KERNEL_VERSION="5.10"
-          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> "$CONFIG_FILE"
+          if [ "${{ github.event.inputs.SUSFS }}" = "true" ]; then
+            echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> "$CONFIG_FILE"
+          fi
+          
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
           
@@ -402,7 +404,7 @@ jobs:
             cp "$image_path" kernel_workspace/kernel_platform/out/Final-Image-Find/Image
           fi
       - name: Download Latest SUSFS Module from CI
-        if: ${{ github.event.inputs.SUSFS_CI == 'CI' }}
+        if: ${{ github.event.inputs.SUSFS_CI == 'CI' && github.event.inputs.SUSFS == 'true' }}
         continue-on-error: true
         run: |
           LATEST_RUN_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -422,7 +424,7 @@ jobs:
           fi
 
       - name: Download Latest SUSFS Module from Release
-        if: ${{ github.event.inputs.SUSFS_CI == 'Release' }}
+        if: ${{ github.event.inputs.SUSFS_CI == 'Release' && github.event.inputs.SUSFS == 'true' }}
         continue-on-error: true
         run: |
           wget -O ksu_module_susfs_1.5.2+_Release.zip https://github.com/sidex15/ksu_module_susfs/releases/latest/download/ksu_module_susfs_1.5.2+.zip
