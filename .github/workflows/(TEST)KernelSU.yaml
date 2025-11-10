@@ -252,7 +252,9 @@ jobs:
             sed -i -e 's/goto show_pad;/return 0;/' ./fs/proc/task_mmu.c
           fi          
           
-          cd ../../KernelSU
+          cd ..
+          cd..
+          cd KernelSU
           patch -p1 < 10_enable_susfs_for_ksu.patch 
           
 
