@@ -250,7 +250,7 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           echo "KernelSU Next Version: $KSU_VERSION"
           SUSFS_VER="${{ github.event.inputs.SUSFS_VERSION }}"
-
+          cd ./common
           echo ">>> 应用 SUSFS 主补丁..."
           patch -p1 --forward < ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch || true
           echo ">>> 根据选择版本补丁进行修复..."
