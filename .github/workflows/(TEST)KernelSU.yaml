@@ -251,9 +251,9 @@ jobs:
             echo "vma_pages Line found. Revert Fake Patching!"
             sed -i -e 's/goto show_pad;/return 0;/' ./fs/proc/task_mmu.c
           fi          
-      
+
           cd ../KernelSU
-          patch -p1 < 10_enable_susfs_for_ksu.patch 
+          patch -p1 < 10_enable_susfs_for_ksu.patch || true 
           
 
       - name: Add Configuration Settings
