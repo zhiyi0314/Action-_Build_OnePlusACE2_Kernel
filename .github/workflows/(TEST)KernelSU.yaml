@@ -256,7 +256,6 @@ jobs:
 
           cd ../KernelSU
           patch -p1 < 10_enable_susfs_for_ksu.patch || true 
-          patch -p1 < fix.rules.c.patch || true 
           
           
 
