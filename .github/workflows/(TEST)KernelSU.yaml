@@ -227,7 +227,7 @@ jobs:
       - name: Add KernelSU
         run: |
           cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
 
       - name: Apply SUSFS Patches 
         run: |
@@ -256,6 +256,7 @@ jobs:
 
           cd ../KernelSU
           patch -p1 < 10_enable_susfs_for_ksu.patch || true 
+          
           
           
 
