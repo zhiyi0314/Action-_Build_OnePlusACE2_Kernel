@@ -26,3 +26,6 @@ Forked by [Action by Numbersf](https://github.com/Numbersf/Action-Build)
 - 删除MKSU-SUSFS（补丁全都不生效，没招了）
 - 关于MKSU和KSU，一段时间内是不会添加SUSFS了
 - [哈基白的网盘coolapk@Frost_dog](https://www.123pan.com/s/u33Zjv-GTlWA)，更新日志在他的动态（他的内核添加了很多特性，极力推荐，上酷安为白白点个关注）
+## 使用此仓库发布内核须知：
+- 所有带SUSFS的Action都可以自选SUSFS模块下载（SukiSU不需要）
+- 所有已经构建成功的Ak3包都可以在包内添加manager.apk实现在刷写内核时安装管理器
